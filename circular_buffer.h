@@ -23,7 +23,7 @@ class CircularBuffer {
                 advance(endi);
                 return true;
             } else {
-                return false; // (do not) pop something out of the way if buffer is full
+                //return false; // (do not) pop something out of the way if buffer is full
                 len = size;
                 data[endi] = value;
                 advance(endi);

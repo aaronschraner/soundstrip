@@ -7,7 +7,7 @@ AVRDUDE=avrdude
 CPPFILES=main.cpp timer.cpp fix_fft.cpp
 CC=avr-g++
 HFILES=pin.h circular_buffer.h
-CFLAGS=-g -Os -std=c++11 -Wall -Wno-reorder -mcall-prologues -mmcu=$(MCU) -DF_CPU=$(CPU_FREQ) 
+CFLAGS=-g -Os -O3 -std=c++11 -Wall -Wno-reorder -mcall-prologues -mmcu=$(MCU) -DF_CPU=$(CPU_FREQ) 
 #PROGRAMMER=usbtiny
  PROGRAMMER=wiring
 PORT=/dev/ttyACM1

@@ -4,7 +4,7 @@ AVRDUDEMCU=$(MCU)
 OBJ2HEX=avr-objcopy
 AVRDUDE=avrdude
 
-CPPFILES=main.cpp timer.cpp fix_fft.cpp
+CPPFILES=main.cpp timer.cpp fix_fft.cpp spi.cpp
 CC=avr-g++
 HFILES=pin.h circular_buffer.h
 CFLAGS=-g -Os -O3 -std=c++11 -Wall -Wno-reorder -mcall-prologues -mmcu=$(MCU) -DF_CPU=$(CPU_FREQ) 

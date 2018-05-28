@@ -42,12 +42,14 @@ class USART {
         CircularBuffer<uint8_t, BUFSIZE> rx_buffer;
 
     public:
-        USART(long baud = 9600):
+        USART(long baud = 9600, int stopbits = 1):
             usart(get_USART<N>())
         {
             select_baudrate(baud);
             usart.UCSRB = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0);
             usart.UCSRC = _BV(UCSZ00) | _BV(UCSZ01);
+            if(stopbits == 2)
+                usart.UCSRC |= _BV(USBS0);
             USART_PTRS[N] = this;
         }
 

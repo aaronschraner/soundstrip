@@ -1,10 +1,14 @@
 #include "pin.h"
+#ifndef LED_STRIP_H
+#define LED_STRIP_H
+
 struct Color {
   uint8_t r, g, b;
 
   Color(uint8_t r, uint8_t g, uint8_t b): r(r), g(g), b(b) {}
   Color(uint8_t grey = 0): r(grey), g(grey), b(grey) {}
   Color(const Color& c): Color(c.r, c.g, c.b) {}
+
 
   const Color& operator=(const Color& c) {
     r = c.r;
@@ -67,3 +71,4 @@ class LEDStrip {
     }
 };
 
+#endif

@@ -1,3 +1,10 @@
+//////////////////////////////
+// usart.h
+//
+// USART class for ATMega2560
+// Copyright Aaron Schraner, 2018
+// 
+//
 #ifndef USART_H
 #define USART_H
 #include <avr/io.h>
@@ -6,6 +13,7 @@
 
 typedef volatile uint8_t& reg_t;
 
+// struct with references to all required USART configuration/data registers
 struct USART_t {
     reg_t UDR,
           UCSRA,
@@ -13,8 +21,6 @@ struct USART_t {
           UCSRC;
     volatile uint16_t& UBRR;
 };
-
-
 
 template <int N> 
 USART_t get_USART() {
@@ -27,6 +33,7 @@ USART_t get_USART() {
     }
 }
 
+// pointers to any USART objects
 void* USART_PTRS[4] = {
     0,
     0,
@@ -34,10 +41,16 @@ void* USART_PTRS[4] = {
     0
 };
 
+// USART class
+// usage: USART<N, BUFSIZE> my_usart(baudrate);
+//  N is the USART number (e.g. USART<0> = USART0)
+//  BUFSIZE is the size of RX buffer to use
+//
+//  the rx buffer is populated by the USART receive interrupt and cleared by the read() method
 template <int N, int BUFSIZE=128>
 class USART {
     private:
-        USART_t usart;
+        USART_t usart; // references to config/data registers
         //CircularBuffer<uint8_t, BUFSIZE> tx_buffer;
         CircularBuffer<uint8_t, BUFSIZE> rx_buffer;
 
@@ -65,7 +78,6 @@ class USART {
         void send(uint8_t value) {
             while(!(usart.UCSRA & _BV(UDRE0)));
             usart.UDR = value;
-
         }
 
         void print(const char* value) {
@@ -73,6 +85,7 @@ class USART {
                 send(value[i]);
         }
 
+        // TODO: fix bug when printing the number 0
         void print(int number) {
             int size = number ? 0 : 1;
             int ncopy = number;
@@ -107,24 +120,21 @@ void usart_rx_interrupt() {
         (reinterpret_cast<USART<N>*>(USART_PTRS[N])) -> rx_interrupt();
 }
 
+// USART interrupts push UDR onto rx_buffer
 ISR(USART0_RX_vect) {
     usart_rx_interrupt<0>();
-    PORTJ ^= _BV(0);
 }
 
 ISR(USART1_RX_vect) {
     usart_rx_interrupt<1>();
-    PORTJ ^= _BV(1);
 }
 
 ISR(USART2_RX_vect) {
     usart_rx_interrupt<2>();
-    PORTJ ^= _BV(2);
 }
 
 ISR(USART3_RX_vect) {
     usart_rx_interrupt<3>();
-    PORTJ ^= _BV(3);
 }
 
 #endif

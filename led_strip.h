@@ -1,7 +1,16 @@
+//////////////////////////////
+// led_strip.h
+//
+// LED strip class and RGB Color class for Adafruit DotStar RGB LED strips
+// Copyright Aaron Schraner, 2018
+// 
+//
+
 #include "pin.h"
 #ifndef LED_STRIP_H
 #define LED_STRIP_H
 
+// 24-bit RGB color class
 struct Color {
   uint8_t r, g, b;
 
@@ -25,6 +34,7 @@ struct Color {
   }
 };
 
+// LED strip class
 class LEDStrip {
   public:
     LEDStrip(const Pin& clk, const Pin& data, int len):
@@ -50,7 +60,7 @@ class LEDStrip {
     }
 
   private:
-    Pin clk, data;
+    const Pin clk, data;
     int len;
     inline void send_start_frame() const {
       send32(0UL); // send 32 zeros for start frame
@@ -58,15 +68,12 @@ class LEDStrip {
     inline void send_end_frame() const {
       send32(~0UL); // send 32 ones for end frame
     }
+    // TODO: hardware SPI??
     void send32(uint32_t value) const {
       for (uint32_t r = 1UL << 31; r; r >>= 1) {
         clk = 0;
-        //delayMicroseconds(1);
         data = value & r;
-        //delayMicroseconds(1);
         clk = 1;
-        //delayMicroseconds(1);
-
       }
     }
 };

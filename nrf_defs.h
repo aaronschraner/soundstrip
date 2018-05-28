@@ -1,3 +1,10 @@
+//////////////////////////////
+// nrf_defs.h
+//
+// configuration register address definitions for nRF24L01 
+// Copyright Aaron Schraner, 2018
+// 
+
 #ifndef NRF_DEFS_H
 #define NRF_DEFS_H
 

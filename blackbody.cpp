@@ -1,5 +1,7 @@
 #include "blackbody.h"
-
+// convert a temperature into an RGB approximation of its black-body radiation color
+// TODO: make this actually work and not a 400 line switch
+//
 Color blackbody(int temperature) {
     temperature /= 100;
     switch(temperature) {

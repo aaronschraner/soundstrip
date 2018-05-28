@@ -1,3 +1,11 @@
+//////////////////////////////
+// circular_buffer.h
+//
+// circular buffer class
+// Copyright Aaron Schraner, 2018
+// 
+//
+//
 #ifndef CIRCULAR_BUFFER_H
 #define CIRCULAR_BUFFER_H
 
@@ -6,7 +14,6 @@ class CircularBuffer {
     private:
         T data[size];
         int starti, endi, len; //start index, end index, length (of valid data)
-
         void advance(int& ptr) {
             ptr = (ptr + 1) % size;
         }
@@ -23,7 +30,7 @@ class CircularBuffer {
                 advance(endi);
                 return true;
             } else {
-                //return false; // (do not) pop something out of the way if buffer is full
+                // behavior is to overwrite first sample if buffer is already full
                 len = size;
                 data[endi] = value;
                 advance(endi);
@@ -53,7 +60,7 @@ class CircularBuffer {
         const T& operator[] (int index) const {
             return data[(index + starti) % size];
         }
-        // iterator class
+        // iterator class (untested as of 5/28/18)
         class Iterator {
             private:
                 CircularBuffer& owner;

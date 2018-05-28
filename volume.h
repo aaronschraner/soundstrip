@@ -25,13 +25,9 @@ class VolumeControl {
         inline void up() {
             state = (state + 1) % 4;
             output();
-            state = (state + 1) % 4;
-            output();
         }
 
         inline void down() {
-            state = (state + 3) % 4;
-            output();
             state = (state + 3) % 4;
             output();
         }

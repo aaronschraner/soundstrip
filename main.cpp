@@ -16,14 +16,14 @@
 const int strip_length = 58;
 const int fft_length = 128;
 
-USART<0, 32> usart(38400);
+USART<0> usart(38400);
 //USART<3,64> irsart(2400, 2);
 
 CircularBuffer<uint8_t, fft_length> circular_buffer;
 Color strip[strip_length];
-Pin enc_gnd(PORTA, 3),
-    enc_p1 (PORTA, 1),
-    enc_p2 (PORTA, 5);
+Pin enc_gnd(PORTA, 5),
+    enc_p1 (PORTA, 7),
+    enc_p2 (PORTA, 3);
     
 VolumeControl volume(enc_p1, enc_p2, enc_gnd);
 
@@ -138,17 +138,17 @@ int main() {
             led_strip.draw(strip);
             _delay_ms(100);
         }
-        for(int i=0; i<0x10; i++) {
-            uint8_t reg = nrf.read_reg8(i);
-            usart.print(i);
-            usart.send(':');
-            for(uint8_t b=0; b<8; b++)
-                usart.send(reg & (0x80 >> b) ? '1' : '0');
-            usart.send('\r');
-            usart.send('\n');
-            _delay_ms(1);
-        }
-        _delay_ms(500);
+        //for(int i=0; i<0x10; i++) {
+        //    uint8_t reg = nrf.read_reg8(i);
+        //    usart.print(i);
+        //    usart.send(':');
+        //    for(uint8_t b=0; b<8; b++)
+        //        usart.send(reg & (0x80 >> b) ? '1' : '0');
+        //    usart.send('\r');
+        //    usart.send('\n');
+        //    _delay_ms(1);
+        //}
+        //_delay_ms(500);
 
         
     }

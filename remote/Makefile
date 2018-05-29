@@ -10,7 +10,7 @@ HFILES=
 CPU_FREQ=1000000UL
 CFLAGS=-g -Os -std=c++11 -Wall -Wno-reorder -mcall-prologues -mmcu=$(MCU) -DF_CPU=$(CPU_FREQ)
 PROGRAMMER=usbasp
-TARGET=itm1a
+TARGET=remote
 
 ###fuse configuration###
 #use 8MHz internal clock

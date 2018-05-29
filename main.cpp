@@ -96,6 +96,8 @@ int abs(int value) {
     return value > 0 ? value : -value;
 }
 
+const uint8_t nrf_address[5] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE}; // RX address
+
 int main() {
     // initialize ADC and sample timer
     adc_init();
@@ -103,13 +105,14 @@ int main() {
 
     // initialize nRF module in TX mode
     nrf.init(NRF::_TX);
+    nrf.set_freq(2412);
+    nrf.setup_rx_pipe(1, nrf_address, 1); // set up pipe 1 with 1-byte length and above address
 
-    // run carrier output power test
-    nrf.broadcast_carrier();
 
     sei();
     const int alpha = 128;   // for WMA
     const int threshold = 8; // for LED strip
+
     while(1) {
         _delay_ms(20);
 
@@ -140,8 +143,18 @@ int main() {
         // update LED strip
         led_strip.draw(strip);
 
-        if(usart.available()) {
-            switch(usart.read()) {
+        if(usart.available() /* || nrf.available() */) {
+            uint8_t packet[32];
+            if(usart.available())
+                packet[0] = usart.read();
+            else
+            {
+                nrf.read(packet);
+                strip[0] = Color(0,0,64);
+            }
+                
+
+            switch(packet[0]) {
                 case '+': volume.up(); strip[strip_length - 1] = Color(32); break;
                 case '-': volume.down(); strip[0] = Color(32); break;
                 case '?': 
@@ -149,7 +162,10 @@ int main() {
                           strip[1] = enc_p1 ? Color(64) : Color(0);
                           strip[2] = enc_p2 ? Color(64) : Color(0);
                           break;
-                default: break;
+                default: 
+                          for(int i=0; i<8; i++)
+                              strip[i] = Color((0x80 >> i) & packet[0] ? 64 : 0);
+                          break;
             }
             led_strip.draw(strip);
             _delay_ms(100);

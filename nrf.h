@@ -30,7 +30,6 @@ struct CS_lock {
 // TODO: fix private/public methods
 class NRF {
     private:
-    public:
 
         const Pin irq,
               ce,
@@ -127,7 +126,7 @@ class NRF {
             write_reg8(reg_addr, reg);
         }
 
-    //public:
+    public:
         enum Mode {
             _RX,
             _TX
@@ -145,6 +144,8 @@ class NRF {
             write_reg8(ADDR_CONFIG, 0x7A | (m == _RX ? 1 : 0));
             // wait 1.5ms
             _delay_us(1500);
+            set_bit(ADDR_CONFIG, 2, 1); // 2 byte CRC
+            set_bit(ADDR_RF_SETUP, 3, 0); //1Mbps data rate
         }
         void power_up() {
             // set PWR_UP bit to 1
@@ -153,7 +154,7 @@ class NRF {
         }
         void power_down() {
             // set PWR_UP bit to 0
-            set_bit(ADDR_CONFIG, 1, 1);
+            set_bit(ADDR_CONFIG, 1, 0);
         }
         void set_mode(Mode m) {
             set_bit(ADDR_CONFIG, 0, m == _RX);
@@ -192,24 +193,66 @@ class NRF {
             ce = 1; // step 13
             {
                 CS_lock cl(cs);
-                spi_send(0xE3);
+                spi_send(0xE3); //packet retransmit command, packets will repeat continuously until CE goes low
             }
         }
 
-        // assumes 5-byte address length
-        //void setup_rx_pipe(int pipe, uint8_t *address){
-        //    // enable shockburst auto-ack
-        //    // enable RX address
-        //    // set address width to 5
-        //    // set auto-retransmit delay
-        //}
-        //void send(const uint8_t* data, uint8_t length) {
-        //    write_tx_payload(data, length);
-        //}
-        //int available() { // return number of available bytes in last packet rx'd
-        //}
-        //int read(uint8_t* data) { // return received pipe number
-        //}
+        // assumes 5-byte address length, forces fixed payload length
+        void setup_rx_pipe(int pipe, const uint8_t *address, int pl_length){
+            // from appendix A of nRF datasheet (Enhanced ShockBurst Receive Payload
+            // step 1
+            set_bit(ADDR_CONFIG, PRIM_RX, 1); // set RX mode
+            set_bit(ADDR_EN_RXADDR, pipe, 1); // enable pipe
+            set_bit(ADDR_EN_AA, pipe, 1); // enable auto-ack for pipe
+            write_reg8(ADDR_RX_PW_P0 + pipe, pl_length); // set payload width
+            if(pipe < 2)
+                write_regN(ADDR_RX_ADDR_P0 + pipe, address, 5);
+            else
+                write_reg8(ADDR_RX_ADDR_P0 + pipe, address[4]);
+
+            // step 2
+            ce = 1; // activate RX mode
+            // monitoring will begin after 130us (step 3)
+
+        }
+        bool available() { // return number of available bytes in last packet rx'd
+            return read_reg8(ADDR_STATUS) & _BV(6); // read RX_DR bit in status register
+            // appendix A (receive) step 4
+        }
+
+        // return received packet length, put pipe in <pipe> if present
+        uint8_t read(uint8_t* data, uint8_t* pipe = 0) { 
+            if(pipe) {
+                uint8_t status = read_reg8(ADDR_STATUS);
+                *pipe = (status & 0xE) >> 1; // fetch pipe number from RX_P_NO in status reg
+            }
+            bool ce_state = ce;
+            ce = 0; // temporarily disable CE while data is read in
+            int length = read_rx_payload(data);
+            set_bit(ADDR_STATUS, 6, 1);
+            ce = ce_state; // return CE to previous state
+            return length;
+        }
+
+        // from appendix A of nRF datasheet
+        // this method assumes that pipe 0 has already been configured with correct RX address
+        void send(const uint8_t* data, uint8_t length, const uint8_t* address) {
+            ce = 0;
+            set_bit(ADDR_CONFIG, PRIM_RX, 0); // step 1
+            set_tx_addr(address); // set TX address
+            write_tx_payload(data, length); // set TX payload data
+            write_regN(ADDR_RX_ADDR_P0, address, 5);
+            
+            // begin transmitting 
+            ce = 1;
+            _delay_ms(30); // at least 10us is required to guarantee successful transmission
+            ce = 0;
+        }
+        void config_retransmission(uint8_t retransmits, uint8_t delay) {
+            write_reg8(ADDR_SETUP_RETR, (delay << 4) | retransmits);
+        }
+
+
 
 };
 

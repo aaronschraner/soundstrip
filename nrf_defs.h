@@ -37,5 +37,10 @@ enum NRF_addresses: uint8_t {
     ADDR_FEATURE = 0x1D
 };
 
+// TODO: make table of all bit positions in conf regs
+
+// CONFIG
+
+#define PRIM_RX 0
 
 #endif

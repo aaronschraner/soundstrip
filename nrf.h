@@ -93,8 +93,8 @@ class NRF {
             int i;
             for(i=0; i<length; i++)
                 spi_send(data[i]);
-            for(;i<32; i++) // pad with zeros
-                spi_send(0);
+            //for(;i<32; i++) // pad with zeros
+            //    spi_send(0);
         }
 
         // flush TX FIFO
@@ -200,10 +200,10 @@ class NRF {
         }
 
         // set transmitter target address (always assume 5-byte address)
-        void set_tx_addr(const uint8_t* data) {
+        void set_tx_addr(const uint8_t* data, int length = 32) {
             write_regN(RX_ADDR_P0, data, 5);
             write_regN(TX_ADDR, data, 5);
-            reg(RX_PW_P0) = 32; //32-byte payload
+            reg(RX_PW_P0) = length; //32-byte payload
         }
 
         // set radio frequency to <freq> MHz.
@@ -312,8 +312,8 @@ class NRF {
 
         void stop_listening() {
             ce.set(LOW);
-            flush_rx();
-            flush_tx();
+            //flush_rx();
+            //flush_tx();
         }
 
 };

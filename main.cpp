@@ -101,7 +101,7 @@ const uint8_t station_address[6] = "1Node"; // receiver address
 int main() {
     // initialize nRF module in TX mode
     nrf.init();
-    nrf.setup_rx_pipe(1, station_address, 32); 
+    nrf.setup_rx_pipe(1, station_address, 1); 
     nrf.start_listening();
     // initialize ADC and sample timer
     adc_init();
@@ -149,7 +149,9 @@ int main() {
                 packet[0] = usart.read();
             else if(nrf.available())
             {
+                nrf.stop_listening();
                 nrf.read(packet);
+                nrf.start_listening();
                 //nrf.flush_rx();
                 strip[0] = Color(0,0,64);
             }

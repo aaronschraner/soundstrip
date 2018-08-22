@@ -17,22 +17,27 @@ int main() {
     NRF nrf(nrf_irq, nrf_ce, nrf_cs);
 
     nrf.init();
-    //nrf.set_tx_addr(station_address);
+    nrf.set_tx_addr(station_address);
+    nrf.setup_rx_pipe(1, remote_address, 32);
+    nrf.start_listening();
     //nrf.set_freq(2412);
     //nrf.config_retransmission(10, 3); // 10 retransmits, 1ms delay
-    //nrf.setup_rx_pipe(0, nrf_address, 1);
 
     uint8_t packet[32];
     for(int i=0; i<32; i++)
         packet[i] = 'A' + i;
     packet[0] = '?';
     while(1) {
-        nrf.broadcast_carrier(76);
-        led = 1;
-        _delay_ms(1000);
-        nrf.power_down();
-        led = 0;
-        _delay_ms(1000);
+        for(int i=0; i<8; i++) {
+            nrf.stop_listening();
+            led = 1;
+            packet[0] = i < 4 ? '?' : '?';
+            nrf.send(packet, 32); 
+            nrf.start_listening();
+            _delay_ms(50);
+            led = 0;
+            _delay_ms(950);
+        }
     }
 }
 

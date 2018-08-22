@@ -201,6 +201,7 @@ class NRF {
 
         // set transmitter target address (always assume 5-byte address)
         void set_tx_addr(const uint8_t* data) {
+            write_regN(RX_ADDR_P0, data, 5);
             write_regN(TX_ADDR, data, 5);
             reg(RX_PW_P0) = 32; //32-byte payload
         }
@@ -241,17 +242,18 @@ class NRF {
         void setup_rx_pipe(int pipe, const uint8_t *address, int pl_length){
             // from appendix A of nRF datasheet (Enhanced ShockBurst Receive Payload)
             // step 1
-            set_bit(EN_RXADDR, pipe, 1); // enable pipe
-            set_bit(EN_AA, pipe, 1); // enable auto-ack for pipe
-            write_reg8(RX_PW_P0 + pipe, pl_length); // set payload width
-            set_bit(CONFIG, PRIM_RX, 1); // set RX mode
+            // set_bit(EN_AA, pipe, 1); // enable auto-ack for pipe
+            // set_bit(CONFIG, PRIM_RX, 1); // set RX mode
             if(pipe < 2)
                 write_regN(RX_ADDR_P0 + pipe, address, 5);
             else
                 write_reg8(RX_ADDR_P0 + pipe, address[4]);
 
+            write_reg8(RX_PW_P0 + pipe, pl_length); // set payload width
+
+            set_bit(EN_RXADDR, pipe, 1); // enable pipe
             // step 2
-            ce = 1; // activate RX mode
+            // ce = 1; // activate RX mode
             // monitoring will begin after 130us (step 3)
 
         }

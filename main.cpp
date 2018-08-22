@@ -101,17 +101,8 @@ const uint8_t station_address[6] = "1Node"; // receiver address
 int main() {
     // initialize nRF module in TX mode
     nrf.init();
-    //nrf.setup_rx_pipe(1, station_address, 32); 
+    nrf.setup_rx_pipe(1, station_address, 32); 
     nrf.start_listening();
-    //while(1) {
-    //    nrf.broadcast_carrier(76);
-    //    LED_pin = 1;
-    //    _delay_ms(1000);
-    //    nrf.power_down();
-    //    LED_pin = 0;
-    //    _delay_ms(1000);
-    //}
-//
     // initialize ADC and sample timer
     adc_init();
     sample_timer_init(samplerate / downsample);
@@ -152,12 +143,14 @@ int main() {
         // update LED strip
         led_strip.draw(strip, 4);
 
-        if(usart.available() ){
+        if(usart.available() || nrf.available()){
             uint8_t packet[32];
             if(usart.available())
                 packet[0] = usart.read();
-            else
+            else if(nrf.available())
             {
+                nrf.read(packet);
+                //nrf.flush_rx();
                 strip[0] = Color(0,0,64);
             }
                 

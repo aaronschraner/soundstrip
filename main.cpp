@@ -49,9 +49,9 @@ VolumeControl volume(enc_p1, enc_p2, enc_gnd);
 //   |=== |        Vcc o o GND |
 //   |____|____________________|
 //
-Pin nrf_irq(PORTL, 0),
-    nrf_ce(PORTL, 1), // arduino mega pin 48
-    nrf_cs(PORTB, 0); // pin 53
+Pin nrf_irq(PORTL, 0, INPUT),
+    nrf_ce(PORTL, 1, OUTPUT), // arduino mega pin 48
+    nrf_cs(PORTB, 0, OUTPUT); // pin 53
 
 // nRF24L01+ radio object
 NRF nrf(nrf_irq, nrf_ce, nrf_cs);
@@ -96,17 +96,26 @@ int abs(int value) {
     return value > 0 ? value : -value;
 }
 
-const uint8_t remote_address[5] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE}; // remote address
-const uint8_t station_address[5] = {0xBB, 0xCC, 0xDD, 0xEE, 0xFF}; // receiver address
+const uint8_t remote_address[6] = "2Node"; // remote address
+const uint8_t station_address[6] = "1Node"; // receiver address
 int main() {
+    // initialize nRF module in TX mode
+    nrf.init();
+    //nrf.setup_rx_pipe(1, station_address, 32); 
+    nrf.start_listening();
+    //while(1) {
+    //    nrf.broadcast_carrier(76);
+    //    LED_pin = 1;
+    //    _delay_ms(1000);
+    //    nrf.power_down();
+    //    LED_pin = 0;
+    //    _delay_ms(1000);
+    //}
+//
     // initialize ADC and sample timer
     adc_init();
     sample_timer_init(samplerate / downsample);
 
-    // initialize nRF module in TX mode
-    nrf.init();
-    nrf.setup_rx_pipe(1, station_address, 32); 
-    nrf.start_listening();
 
 
     sei();
@@ -143,16 +152,13 @@ int main() {
         // update LED strip
         led_strip.draw(strip, 4);
 
-        if(usart.available() || nrf.available() ){
+        if(usart.available() ){
             uint8_t packet[32];
             if(usart.available())
                 packet[0] = usart.read();
-            else if (nrf.available())
+            else
             {
-                nrf.stop_listening();
-                nrf.read(packet);
                 strip[0] = Color(0,0,64);
-                nrf.start_listening();
             }
                 
 
@@ -172,6 +178,8 @@ int main() {
             led_strip.draw(strip);
             _delay_ms(20);
         }
+        LED_pin = nrf[CD_REG] & 0x01;
+
         //for(int i=0; i<0x10; i++) {
         //    uint8_t reg = nrf.read_reg8(i);
         //    usart.print(i);

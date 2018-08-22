@@ -17,7 +17,7 @@ int main() {
     NRF nrf(nrf_irq, nrf_ce, nrf_cs);
 
     nrf.init();
-    nrf.set_tx_addr(station_address);
+    //nrf.set_tx_addr(station_address);
     //nrf.set_freq(2412);
     //nrf.config_retransmission(10, 3); // 10 retransmits, 1ms delay
     //nrf.setup_rx_pipe(0, nrf_address, 1);
@@ -27,7 +27,7 @@ int main() {
         packet[i] = 'A' + i;
     packet[0] = '?';
     while(1) {
-        nrf.send(packet, 32);
+        nrf.broadcast_carrier(76);
         led = 1;
         _delay_ms(1000);
         nrf.power_down();

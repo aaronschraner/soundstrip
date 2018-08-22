@@ -91,8 +91,11 @@ class NRF {
         void write_tx_payload(const uint8_t* data, uint8_t length) {
             CS_lock cl(cs);
             spi_send(0xA0);
-            for(int i=0; i<length; i++)
+            int i;
+            for(i=0; i<length; i++)
                 spi_send(data[i]);
+            for(;i<32; i++) // pad with zeros
+                spi_send(0);
         }
 
         // flush TX FIFO
@@ -138,14 +141,20 @@ class NRF {
             ce.mode(OUTPUT);
             cs.mode(OUTPUT);
             spi_init();
+            ce.set(0);
+            cs.set(1);
         }
-        void init(Mode m) {
-            // set PWR_UP = 1 in config register
-            write_reg8(ADDR_CONFIG, 0x7A | (m == _RX ? 1 : 0));
-            // wait 1.5ms
-            _delay_us(1500);
-            set_bit(ADDR_CONFIG, 2, 1); // 2 byte CRC
-            set_bit(ADDR_RF_SETUP, 3, 0); //1Mbps data rate
+        void init() {
+
+            _delay_ms(5); 
+            write_reg8(ADDR_SETUP_RETR, 0b01001111);
+            write_reg8(ADDR_RF_SETUP, 0x06); // maximum power, 1Mbps data rate
+            write_reg8(ADDR_CONFIG, 0x7C); // 2-byte CRC enabled, interrupts disabled
+            write_reg8(ADDR_DYNPD, 0); // disable dynamic-length payloads
+            write_reg8(ADDR_STATUS, 0b01110000);
+            set_freq(76); 
+            flush_rx();
+            flush_tx();
         }
         void power_up() {
             // set PWR_UP bit to 1
@@ -163,6 +172,8 @@ class NRF {
         // set transmitter target address (always assume 5-byte address)
         void set_tx_addr(const uint8_t* data) {
             write_regN(ADDR_TX_ADDR, data, 5);
+            write_regN(ADDR_RX_ADDR_P0, data, 5);
+            write_reg8(ADDR_RX_PW_P0, 32);
         }
 
         // set radio frequency to <freq> MHz.
@@ -199,12 +210,12 @@ class NRF {
 
         // assumes 5-byte address length, forces fixed payload length
         void setup_rx_pipe(int pipe, const uint8_t *address, int pl_length){
-            // from appendix A of nRF datasheet (Enhanced ShockBurst Receive Payload
+            // from appendix A of nRF datasheet (Enhanced ShockBurst Receive Payload)
             // step 1
-            set_bit(ADDR_CONFIG, PRIM_RX, 1); // set RX mode
             set_bit(ADDR_EN_RXADDR, pipe, 1); // enable pipe
             set_bit(ADDR_EN_AA, pipe, 1); // enable auto-ack for pipe
             write_reg8(ADDR_RX_PW_P0 + pipe, pl_length); // set payload width
+            set_bit(ADDR_CONFIG, PRIM_RX, 1); // set RX mode
             if(pipe < 2)
                 write_regN(ADDR_RX_ADDR_P0 + pipe, address, 5);
             else
@@ -236,21 +247,47 @@ class NRF {
 
         // from appendix A of nRF datasheet
         // this method assumes that pipe 0 has already been configured with correct RX address
-        void send(const uint8_t* data, uint8_t length, const uint8_t* address) {
-            ce = 0;
+        void send(const uint8_t* data, uint8_t length) {
             set_bit(ADDR_CONFIG, PRIM_RX, 0); // step 1
-            set_tx_addr(address); // set TX address
+            _delay_us(150);
             write_tx_payload(data, length); // set TX payload data
-            write_regN(ADDR_RX_ADDR_P0, address, 5);
             
             // begin transmitting 
             ce = 1;
-            _delay_ms(30); // at least 10us is required to guarantee successful transmission
+            _delay_us(15); // at least 10us is required to guarantee successful transmission
             ce = 0;
+
+            while(!(read_reg8(ADDR_STATUS) & 0x30));
+            set_bit(ADDR_CONFIG, 1, 0);
+            flush_tx();
         }
         void config_retransmission(uint8_t retransmits, uint8_t delay) {
             write_reg8(ADDR_SETUP_RETR, (delay << 4) | retransmits);
         }
+        void start_listening() {
+            //enable PRIM_RX and PWR_UP in config register
+            uint8_t config = read_reg8(ADDR_CONFIG);
+            config |= 0x03;
+            write_reg8(ADDR_CONFIG, config);
+
+            // clear interrupt requests
+            write_reg8(ADDR_STATUS, 0x70);
+
+
+            flush_rx();
+            flush_tx();
+            
+            ce.set(HIGH);
+
+            _delay_us(130);
+        }
+
+        void stop_listening() {
+            ce.set(LOW);
+            flush_rx();
+            flush_tx();
+        }
+
 
 
 

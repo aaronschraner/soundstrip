@@ -50,8 +50,8 @@ VolumeControl volume(enc_p1, enc_p2, enc_gnd);
 //   |____|____________________|
 //
 Pin nrf_irq(PORTL, 0),
-    nrf_ce(PORTL, 1), 
-    nrf_cs(PORTB, 0);
+    nrf_ce(PORTL, 1), // arduino mega pin 48
+    nrf_cs(PORTB, 0); // pin 53
 
 // nRF24L01+ radio object
 NRF nrf(nrf_irq, nrf_ce, nrf_cs);
@@ -96,17 +96,17 @@ int abs(int value) {
     return value > 0 ? value : -value;
 }
 
-const uint8_t nrf_address[5] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE}; // RX address
-
+const uint8_t remote_address[5] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE}; // remote address
+const uint8_t station_address[5] = {0xBB, 0xCC, 0xDD, 0xEE, 0xFF}; // receiver address
 int main() {
     // initialize ADC and sample timer
     adc_init();
     sample_timer_init(samplerate / downsample);
 
     // initialize nRF module in TX mode
-    nrf.init(NRF::_TX);
-    nrf.set_freq(2412);
-    nrf.setup_rx_pipe(1, nrf_address, 1); // set up pipe 1 with 1-byte length and above address
+    nrf.init();
+    nrf.setup_rx_pipe(1, station_address, 32); 
+    nrf.start_listening();
 
 
     sei();
@@ -141,22 +141,24 @@ int main() {
                     0);
         }
         // update LED strip
-        led_strip.draw(strip);
+        led_strip.draw(strip, 4);
 
-        if(usart.available() /* || nrf.available() */) {
+        if(usart.available() || nrf.available() ){
             uint8_t packet[32];
             if(usart.available())
                 packet[0] = usart.read();
-            else
+            else if (nrf.available())
             {
+                nrf.stop_listening();
                 nrf.read(packet);
                 strip[0] = Color(0,0,64);
+                nrf.start_listening();
             }
                 
 
             switch(packet[0]) {
-                case '+': volume.up(); strip[strip_length - 1] = Color(32); break;
-                case '-': volume.down(); strip[0] = Color(32); break;
+                case '+': volume.up(); volume.up();volume.up(); strip[strip_length - 1] = Color(32); break;
+                case '-': volume.down(); volume.down(); volume.down(); strip[0] = Color(32); break;
                 case '?': 
                           strip[0] = volume.movable() ? Color(1, 255, 0) : Color(255, 0, 0); 
                           strip[1] = enc_p1 ? Color(64) : Color(0);
@@ -168,7 +170,7 @@ int main() {
                           break;
             }
             led_strip.draw(strip);
-            _delay_ms(100);
+            _delay_ms(20);
         }
         //for(int i=0; i<0x10; i++) {
         //    uint8_t reg = nrf.read_reg8(i);
@@ -191,7 +193,8 @@ void adc_start_conversion() {
 }
 
 void adc_init() {
-    ADMUX = _BV(REFS0) | 0x0D; // ADC channel 1+/0-, Vcc reference
+    //ADMUX = _BV(REFS0) | 0x0F; // ADC channel 1+/0-, Vcc reference, 200x gain
+    ADMUX = _BV(REFS0) | 0x0D; // ADC channel 1+/0-, Vcc reference, 10x gain
     ADCSRA = _BV(ADEN) | _BV(ADIE); // enable ADC, enable interrupt
     ADCSRB = 0;
     DIDR0 |= _BV(2) | _BV(3);  // disable digital input buffer for channel 0 and 1

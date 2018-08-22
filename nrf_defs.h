@@ -33,7 +33,7 @@ enum NRF_addresses: uint8_t {
     ADDR_RX_PW_P4 = 0x15,
     ADDR_RX_PW_P5 = 0x16,
     ADDR_FIFO_STATUS = 0x17,
-    ADDR_DYNDPD = 0x1C,
+    ADDR_DYNPD = 0x1C,
     ADDR_FEATURE = 0x1D
 };
 

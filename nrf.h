@@ -30,7 +30,6 @@ struct CS_lock {
 // TODO: fix private/public methods
 class NRF {
     private:
-
         const Pin irq,
               ce,
               cs;
@@ -130,6 +129,36 @@ class NRF {
         }
 
     public:
+        class Reg8 { 
+            private:
+                NRF* const owner;
+                const uint8_t address;
+            public:
+                Reg8(NRF* const owner, uint8_t address):
+                    owner(owner), address(address) {}
+                uint8_t read() const { 
+                    return owner->read_reg8(address);
+                }
+                void write(uint8_t value) {
+                    owner->write_reg8(address, value);
+                }
+                operator uint8_t() const { return read(); }
+                Reg8& operator=(const uint8_t& value) { write(value); return *this;}
+                uint8_t operator~() { return ~read();}
+                //uint8_t operator&(uint8_t rhs) const { return read() & rhs; }
+                //uint8_t operator^(uint8_t rhs) const { return read() ^ rhs; }
+                //uint8_t operator|(uint8_t rhs) const { return read() | rhs; }
+                uint8_t operator&=(uint8_t rhs) { *this = *this & rhs; return *this;};
+                uint8_t operator^=(uint8_t rhs) { *this = *this ^ rhs; return *this;};
+                uint8_t operator|=(uint8_t rhs) { *this = *this | rhs; return *this;};
+
+        };
+        Reg8 reg(NRF_register r) {
+            return Reg8(this, *reinterpret_cast<uint8_t*>(&r));
+        }
+        Reg8 operator[] (NRF_register r) {
+            return reg(r);
+        }
         enum Mode {
             _RX,
             _TX
@@ -145,57 +174,57 @@ class NRF {
             cs.set(1);
         }
         void init() {
-
             _delay_ms(5); 
-            write_reg8(ADDR_SETUP_RETR, 0b01001111);
-            write_reg8(ADDR_RF_SETUP, 0x06); // maximum power, 1Mbps data rate
-            write_reg8(ADDR_CONFIG, 0x7C); // 2-byte CRC enabled, interrupts disabled
-            write_reg8(ADDR_DYNPD, 0); // disable dynamic-length payloads
-            write_reg8(ADDR_STATUS, 0b01110000);
+            // 2250us retransmit delay, max 15 retransmissions
+            reg(SETUP_RETR) = (0b0100 << ARD) | (0b1111 << ARC); 
+            
+            reg(RF_SETUP) = (0x3 << RF_PWR) | (0 << RF_DR); // maximum power, 1Mbps data rate
+            
+            reg(CONFIG) = _BV(MASK_RX_DR) | _BV(MASK_TX_DS) | 
+                _BV(MASK_MAX_RT) | _BV(EN_CRC) | _BV(CRC0); // 2-byte CRC enabled, interrupts disabled
+
+            reg(DYNPD) = 0; // disable dynamic-length payloads
+            reg(STATUS) = _BV(RX_DR) | _BV(TX_DS) | _BV(MAX_RT); 
             set_freq(76); 
             flush_rx();
             flush_tx();
         }
         void power_up() {
             // set PWR_UP bit to 1
-            set_bit(ADDR_CONFIG, 1, 1);
+            set_bit(CONFIG, PWR_UP, 1);
             _delay_us(1500);
         }
         void power_down() {
             // set PWR_UP bit to 0
-            set_bit(ADDR_CONFIG, 1, 0);
-        }
-        void set_mode(Mode m) {
-            set_bit(ADDR_CONFIG, 0, m == _RX);
+            set_bit(CONFIG, PWR_UP, 0);
         }
 
         // set transmitter target address (always assume 5-byte address)
         void set_tx_addr(const uint8_t* data) {
-            write_regN(ADDR_TX_ADDR, data, 5);
-            write_regN(ADDR_RX_ADDR_P0, data, 5);
-            write_reg8(ADDR_RX_PW_P0, 32);
+            write_regN(TX_ADDR, data, 5);
+            reg(RX_PW_P0) = 32; //32-byte payload
         }
 
         // set radio frequency to <freq> MHz.
         void set_freq(int freq) {
-            write_reg8(ADDR_RF_CH, freq >= 2400 ? freq - 2400 : freq);
+            reg(RF_CH) = freq >= 2400 ? freq - 2400 : freq;
         }
         
         // Test carrier output power
         // from appendix C of nRF24L01 datasheet
         void broadcast_carrier(int frequency = 2400) {
             power_up(); // step 1, 2
-            set_mode(_TX); // step 3
-            write_reg8(ADDR_EN_AA, 0x00); // step 4
-            // leave output power at default (step 5)
-            set_bit(ADDR_RF_SETUP, 4, 1); // step 6
+            set_bit(CONFIG, PRIM_RX, 0); // put in TX mode (step 3)
+            reg(EN_AA) = 0; // disable auto-ack (step 4)
+            reg(RF_SETUP) = reg(RF_SETUP) | (0x03 << RF_PWR); // set output power to max (step 5)
+            set_bit(RF_SETUP, PLL_LOCK, 1); // force PLL lock (step 6)
             uint8_t tx_addr[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-            set_tx_addr(tx_addr); // step 7
+            set_tx_addr(tx_addr); // set TX address to all 1's (step 7)
             uint8_t payload[32];
             for(int i=0; i<32; i++)
                 payload[i] = 0xFF;
-            write_tx_payload(payload, 32); // step 8
-            set_bit(ADDR_CONFIG, 3, 0); // disable CRC, step 9
+            write_tx_payload(payload, 32); // set payload to all 1's (step 8)
+            set_bit(CONFIG, EN_CRC, 0); // disable CRC, step 9
             set_freq(frequency); // step 10
             ce = 1;
             _delay_us(11);
@@ -212,14 +241,14 @@ class NRF {
         void setup_rx_pipe(int pipe, const uint8_t *address, int pl_length){
             // from appendix A of nRF datasheet (Enhanced ShockBurst Receive Payload)
             // step 1
-            set_bit(ADDR_EN_RXADDR, pipe, 1); // enable pipe
-            set_bit(ADDR_EN_AA, pipe, 1); // enable auto-ack for pipe
-            write_reg8(ADDR_RX_PW_P0 + pipe, pl_length); // set payload width
-            set_bit(ADDR_CONFIG, PRIM_RX, 1); // set RX mode
+            set_bit(EN_RXADDR, pipe, 1); // enable pipe
+            set_bit(EN_AA, pipe, 1); // enable auto-ack for pipe
+            write_reg8(RX_PW_P0 + pipe, pl_length); // set payload width
+            set_bit(CONFIG, PRIM_RX, 1); // set RX mode
             if(pipe < 2)
-                write_regN(ADDR_RX_ADDR_P0 + pipe, address, 5);
+                write_regN(RX_ADDR_P0 + pipe, address, 5);
             else
-                write_reg8(ADDR_RX_ADDR_P0 + pipe, address[4]);
+                write_reg8(RX_ADDR_P0 + pipe, address[4]);
 
             // step 2
             ce = 1; // activate RX mode
@@ -227,20 +256,20 @@ class NRF {
 
         }
         bool available() { // return number of available bytes in last packet rx'd
-            return read_reg8(ADDR_STATUS) & _BV(6); // read RX_DR bit in status register
+            return reg(STATUS) & _BV(6); // read RX_DR bit in status register
             // appendix A (receive) step 4
         }
 
         // return received packet length, put pipe in <pipe> if present
         uint8_t read(uint8_t* data, uint8_t* pipe = 0) { 
             if(pipe) {
-                uint8_t status = read_reg8(ADDR_STATUS);
+                uint8_t status = reg(STATUS);
                 *pipe = (status & 0xE) >> 1; // fetch pipe number from RX_P_NO in status reg
             }
             bool ce_state = ce;
             ce = 0; // temporarily disable CE while data is read in
             int length = read_rx_payload(data);
-            set_bit(ADDR_STATUS, 6, 1);
+            set_bit(STATUS, RX_DR, 1); // clear RX data ready interrupt
             ce = ce_state; // return CE to previous state
             return length;
         }
@@ -248,7 +277,7 @@ class NRF {
         // from appendix A of nRF datasheet
         // this method assumes that pipe 0 has already been configured with correct RX address
         void send(const uint8_t* data, uint8_t length) {
-            set_bit(ADDR_CONFIG, PRIM_RX, 0); // step 1
+            set_bit(CONFIG, PRIM_RX, 0); // step 1
             _delay_us(150);
             write_tx_payload(data, length); // set TX payload data
             
@@ -257,22 +286,19 @@ class NRF {
             _delay_us(15); // at least 10us is required to guarantee successful transmission
             ce = 0;
 
-            while(!(read_reg8(ADDR_STATUS) & 0x30));
-            set_bit(ADDR_CONFIG, 1, 0);
+            while(!(reg(STATUS) & (_BV(MAX_RT) | _BV(TX_DS))));
+            power_down();
             flush_tx();
         }
         void config_retransmission(uint8_t retransmits, uint8_t delay) {
-            write_reg8(ADDR_SETUP_RETR, (delay << 4) | retransmits);
+            reg(SETUP_RETR) = (delay << ARD) | (retransmits << ARC);
         }
         void start_listening() {
             //enable PRIM_RX and PWR_UP in config register
-            uint8_t config = read_reg8(ADDR_CONFIG);
-            config |= 0x03;
-            write_reg8(ADDR_CONFIG, config);
+            reg(CONFIG) |= _BV(PWR_UP) | _BV(PRIM_RX);
 
             // clear interrupt requests
-            write_reg8(ADDR_STATUS, 0x70);
-
+            reg(STATUS) = _BV(RX_DR) | _BV(TX_DS) | _BV(MAX_RT);
 
             flush_rx();
             flush_tx();
@@ -287,9 +313,6 @@ class NRF {
             flush_rx();
             flush_tx();
         }
-
-
-
 
 };
 

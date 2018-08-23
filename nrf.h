@@ -203,7 +203,7 @@ class NRF {
         void set_tx_addr(const uint8_t* data, int length = 32) {
             write_regN(RX_ADDR_P0, data, 5);
             write_regN(TX_ADDR, data, 5);
-            reg(RX_PW_P0) = length; //32-byte payload
+            reg(RX_PW_P0) = length; // write payload length
         }
 
         // set radio frequency to <freq> MHz.

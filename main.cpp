@@ -49,8 +49,8 @@ VolumeControl volume(enc_p1, enc_p2, enc_gnd);
 //   |=== |        Vcc o o GND |
 //   |____|____________________|
 //
-Pin nrf_irq(PORTL, 0, INPUT),
-    nrf_ce(PORTL, 1, OUTPUT), // arduino mega pin 48
+Pin nrf_irq(PORTL, 0, INPUT), // arduino mega pin 49
+    nrf_ce(PORTL, 1, OUTPUT), // pin 48
     nrf_cs(PORTB, 0, OUTPUT); // pin 53
 
 // nRF24L01+ radio object
@@ -60,8 +60,8 @@ NRF nrf(nrf_irq, nrf_ce, nrf_cs);
 Pin LED_pin(PORTB, 7, OUTPUT);
 
 // clock and data pins for LED strip
-Pin led_clk(PORTA, 0, OUTPUT);
-Pin led_data(PORTA, 1, OUTPUT);
+Pin led_clk(PORTA, 0, OUTPUT);  // pin 22
+Pin led_data(PORTA, 1, OUTPUT); // pin 23
 
 LEDStrip led_strip(led_clk, led_data, strip_length);
 
@@ -153,7 +153,6 @@ int main() {
                 nrf.read(packet);
                 nrf.start_listening();
                 //nrf.flush_rx();
-                strip[0] = Color(0,0,64);
             }
                 
 
@@ -173,21 +172,8 @@ int main() {
             led_strip.draw(strip);
             _delay_ms(20);
         }
-        LED_pin = nrf[CD_REG] & 0x01;
-
-        //for(int i=0; i<0x10; i++) {
-        //    uint8_t reg = nrf.read_reg8(i);
-        //    usart.print(i);
-        //    usart.send(':');
-        //    for(uint8_t b=0; b<8; b++)
-        //        usart.send(reg & (0x80 >> b) ? '1' : '0');
-        //    usart.send('\r');
-        //    usart.send('\n');
-        //    _delay_ms(1);
-        //}
-        //_delay_ms(500);
-
-        
+        // indicate if carrier is detected on LED pin
+        LED_pin = nrf[CD_REG] & 0x01; 
     }
 }
 
